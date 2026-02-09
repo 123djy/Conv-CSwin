@@ -13,16 +13,12 @@ import IMDLBenCo.training_scripts.utils.misc as misc
 
 from IMDLBenCo.registry import MODELS, POSTFUNCS
 from IMDLBenCo.transforms import get_albu_transforms
-
 from IMDLBenCo.datasets import ManiDataset, JsonDataset, BalancedDataset
 from IMDLBenCo.evaluation import PixelF1, ImageF1
 from IMDLBenCo.training_scripts.tester import test_one_epoch
 from IMDLBenCo.training_scripts.trainer import train_one_epoch
 
-# from mesorch import Mesorch
-# from mesorch_p import Mesorch_P
 from conv_cswin import Mesorch_ConvNeXt_CSWinB
-
 
 
 def get_args_parser():
@@ -34,7 +30,6 @@ def get_args_parser():
     parser.add_argument('--if_predict_label', action='store_true',
                         help='Does the model that can accept labels actually take label input')
 
-    # dataset
     parser.add_argument('--image_size', default=512, type=int)
     parser.add_argument('--if_padding', action='store_true')
     parser.add_argument('--if_resizing', action='store_true')
@@ -44,7 +39,6 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/root/Dataset/CASIA2.0/', type=str)
     parser.add_argument('--test_data_path', default='/root/Dataset/CASIA1.0', type=str)
 
-    # training
     parser.add_argument('--batch_size', default=1, type=int)
     parser.add_argument('--test_batch_size', default=2, type=int)
     parser.add_argument('--epochs', default=200, type=int)
@@ -76,7 +70,6 @@ def get_args_parser():
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
 
-    # distributed parameters (ignored for single GPU)
     parser.add_argument('--world_size', default=1, type=int)
     parser.add_argument('--local_rank', default=0, type=int)
     parser.add_argument('--dist_on_itp', action='store_true')
@@ -84,7 +77,6 @@ def get_args_parser():
 
     args, remaining_args = parser.parse_known_args()
 
-    # load model class
     model_class = MODELS.get(args.model)
     model_parser = misc.create_argparser(model_class)
     model_args = model_parser.parse_args(remaining_args)
@@ -92,12 +84,7 @@ def get_args_parser():
     return args, model_args
 
 
-
 def main(args, model_args):
-
-    # ============================================================
-    # 🚀 单 GPU 训练：强制关闭分布式
-    # ============================================================
     args.distributed = False
     args.world_size = 1
     args.local_rank = 0
@@ -114,7 +101,6 @@ def main(args, model_args):
 
     device = torch.device(args.device)
 
-    # fix random seed
     seed = args.seed
     misc.seed_torch(seed)
     np.random.seed(seed)
@@ -122,14 +108,12 @@ def main(args, model_args):
     train_transform = get_albu_transforms('train')
     test_transform = get_albu_transforms('test')
 
-    # POST function
     post_function_name = f"{args.model}_post_func".lower()
     if POSTFUNCS.has(post_function_name):
         post_function = POSTFUNCS.get(post_function_name)
     else:
         post_function = None
 
-    # ---- dataset ----
     if os.path.isdir(args.data_path):
         dataset_train = ManiDataset(
             args.data_path,
@@ -163,7 +147,6 @@ def main(args, model_args):
             )
 
     if os.path.isdir(args.test_data_path):
-        # Folder: use ManiDataset
         dataset_test = ManiDataset(
             args.test_data_path,
             is_padding=args.if_padding,
@@ -174,7 +157,6 @@ def main(args, model_args):
             post_funcs=post_function
         )
     else:
-        # JSON: try JsonDataset first, else use BalancedDataset
         try:
             dataset_test = JsonDataset(
                 args.test_data_path,
@@ -196,18 +178,15 @@ def main(args, model_args):
                 post_funcs=post_function
             )
 
-    # ---- Sampler (单 GPU 使用 RandomSampler) ----
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     sampler_test = torch.utils.data.RandomSampler(dataset_test)
 
-    # ---- Logging ----
     if args.log_dir is not None:
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
     else:
         log_writer = None
 
-    # ---- DataLoader ----
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=args.batch_size,
@@ -224,13 +203,8 @@ def main(args, model_args):
         drop_last=True,
     )
 
-    # ============================================================
-    #  🚀 初始化模型
-    # ============================================================
-    # first get model constructor
     model_fn = MODELS.get(args.model)
 
-    # pick matching arguments
     if isinstance(model_fn, (types.FunctionType, types.MethodType)):
         model_params = inspect.signature(model_fn).parameters
     else:
@@ -256,7 +230,6 @@ def main(args, model_args):
     print("accumulate grad iterations: %d" % args.accum_iter)
     print("effective batch size: %d" % eff_batch_size)
 
-    # ---- Optimizer ----
     args.opt = 'AdamW'
     args.betas = (0.9, 0.999)
     args.momentum = 0.9
@@ -266,7 +239,6 @@ def main(args, model_args):
 
     loss_scaler = misc.NativeScalerWithGradNormCount()
 
-    # ---- Resume ----
     misc.load_model(
         args=args, model_without_ddp=model_without_ddp,
         optimizer=optimizer, loss_scaler=loss_scaler
@@ -282,7 +254,6 @@ def main(args, model_args):
     best_evaluate_metric_value = 0
 
     for epoch in range(args.start_epoch, args.epochs):
-
         train_stats = train_one_epoch(
             model, data_loader_train,
             optimizer, device, epoch, loss_scaler,
@@ -299,9 +270,7 @@ def main(args, model_args):
 
         optimizer.zero_grad()
 
-        # ---- Test ----
         if epoch % args.test_period == 0 or epoch + 1 == args.epochs:
-
             test_stats = test_one_epoch(
                 model,
                 data_loader=data_loader_test,
@@ -331,7 +300,6 @@ def main(args, model_args):
                 **{f"test_{k}": v for k, v in test_stats.items()},
                 'epoch': epoch
             }
-
         else:
             log_stats = {
                 **{f"train_{k}": v for k, v in train_stats.items()},
@@ -346,7 +314,6 @@ def main(args, model_args):
 
     total_time = time.time() - start_time
     print('Training time {}'.format(datetime.timedelta(seconds=int(total_time))))
-
 
 
 if __name__ == '__main__':
