@@ -9,3 +9,10 @@ This work investigates controlled architectural modifications to a hybrid CNN–
 Training and evaluation splits are defined using JSON configuration files following the IMDLBenCo (IMDL) dataset format:
 - `balanced_dataset.json` specifies the training datasets.
 - `test_datasets.json` specifies the test datasets.
+
+## Environment
+
+- Python 3.10.0
+- PyTorch 2.5.1 (CUDA 12.4, cu124)
+- numpy 1.26.4
+- IMDLBenCo
