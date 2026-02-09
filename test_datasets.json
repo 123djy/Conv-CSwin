@@ -1,0 +1,8 @@
+{
+    "Columbia": "/data/jdon492/Mesorch_with_pretrain_weight/public_datasets/IML/Columbia_processed",
+    "NIST16_1024": "/data/jdon492/Mesorch_with_pretrain_weight/public_datasets/IML/Nist",
+    "coverage": "/data/jdon492/Mesorch_with_pretrain_weight/public_datasets/IML/Coverage_processed",
+    "CASIAv1": "/data/jdon492/Mesorch_with_pretrain_weight/public_datasets/IML/CASIA1_processed"
+}
+
+
