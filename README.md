@@ -16,6 +16,12 @@ Training and evaluation splits are defined using JSON configuration files follow
 - PyTorch 2.5.1 (CUDA 12.4, cu124)
 - numpy 1.26.4
 - IMDLBenCo
+- git clone https://github.com/microsoft/CSWin-Transformer
 
 ## Training
 
+bash training.sh
+
+## Testing
+
+bash testing.sh
