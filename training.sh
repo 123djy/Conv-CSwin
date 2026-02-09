@@ -1,5 +1,5 @@
 
-base_dir="./训练结果/ccswin_消融_只看cswin结构_无adapter_seed46"
+base_dir="./ccswin"
 mkdir -p ${base_dir}
 
 export CUDA_VISIBLE_DEVICES=0
